@@ -66,7 +66,6 @@ class User_recom(Resource):
 
 api.add_resource(Film_all, '/')
 api.add_resource(Film, '/<basis_id>')
-
 api.add_resource(User_recom, '/user')
 
 if __name__ == '__main__':
