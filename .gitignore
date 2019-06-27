@@ -7,3 +7,4 @@ Files/*
 __pycache__
 .vscode
 test.py
+.DS_Store
