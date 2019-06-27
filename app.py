@@ -1,74 +1,90 @@
 from flask import Flask
-from flask_restful import reqparse, Resource, Api
+from flask_restful import Resource, Api, reqparse
 import pickle
 import numpy as np
-from model import Content_based, Collab_based, Hybrid_based, Model_based
+from model import ContentBased, CollabBased, HybridBased, ModelBased
 
-with open('./Files/model_svd.pkl', 'rb') as f:
-    Algo = pickle.load(f)
-with open('./Files/map.pkl', 'rb') as f:
-    movie_map = pickle.load(f)
-with open('./Files/rating.pkl', 'rb') as f:
-    rating = pickle.load(f)
-with open('./Files/latent_collaborative.pkl', 'rb') as f:
-    latent_collaborative = pickle.load(f)
-with open('./Files/latent_content.pkl', 'rb') as f:
-    latent_content = pickle.load(f)
+
+# the recommender module
+class Recommender:
+
+    def __init__(self):
+        with open('./Files/model_svd.pkl', 'rb') as f:
+            self.algo = pickle.load(f)
+        with open('./Files/map.pkl', 'rb') as f:
+            self.movie_map = pickle.load(f)
+        with open('./Files/rating.pkl', 'rb') as f:
+            self.rating = pickle.load(f)
+        with open('./Files/latent_collaborative.pkl', 'rb') as f:
+            latent_collab = pickle.load(f)
+        with open('./Files/latent_content.pkl', 'rb') as f:
+            latent_content = pickle.load(f)
+
+        self.clf_content = ContentBased(latent_content)
+        self.clf_collab = CollabBased(latent_collab)
+        self.clf_hybrid = HybridBased(latent_content, latent_collab)
+        self.clf_algo = ModelBased(self.algo)
+
+    def parsing_args(self):
+        self.parser = reqparse.RequestParser()
+        self.parser.add_argument('movie', required=False,
+                                 help="movie title followed by year")
+        self.parser.add_argument('limit', required=False,
+                                 help="N in top N films")
+
+    def get_all_recommendations(self, moviename, n):
+        if moviename in self.movie_map.keys():
+
+            output = {
+                'content': {'content':
+                            self.clf_content.predict_top_n(moviename, n)},
+                'collaborative': {'collaborative':
+                                  self.clf_collab.predict_top_n(moviename, n)},
+                'hybrid': {'hybrid':
+                           self.clf_hybrid.predict_top_n(moviename, n)},
+                     }
+        else:
+            output = None
+        return output
+
+    def get_user_recommendation(self, userId, n):
+        if userId in self.rating.userId.unique():
+            ui_list = self.rating[
+                self.rating.userId == userId].movieId.tolist()
+            d = {k: v for k, v in self.movie_map.items() if v not in ui_list}
+            output = self.clf_algo.predict_top_n_user(userId, d, n)
+        else:
+            output = None
+        return output
+
+# the app
 
 app = Flask(__name__)
 api = Api(app)
 
-parser = reqparse.RequestParser()
-parser.add_argument('film', required=False, help="film title")
-parser.add_argument('limit', required=False,  help="N in top N films")
-parser.add_argument('user', type=int, help='a user that exists in the list of users!')
+
+class MovieBasis(Resource):
+
+    def get(self, basis):
+        args = ex.parser.parse_args()
+        movie = args['movie']
+        n = args['limit']
+        output = ex.get_all_recommendations(movie, int(n))
+        return output[basis]
 
 
-class Film_all(Resource):
-    def get(self):
+class UserBasis(Resource):
 
-        args = parser.parse_args()
-        query = args['film']
-        n= int(args['limit'])
-        if query in movie_map.keys():
-            clf1 = Content_based(latent_content)
-            clf2 = Collab_based(latent_collaborative)
-            clf3 = Hybrid_based(latent_content, latent_collaborative)
-            output =  {
-                    'content': {'content':clf1.predict_Top_N(query, n)},
-                    'collaborative': {'collaborative':clf2.predict_Top_N(query, n)},
-                    'hybrid': {'hybrid':clf3.predict_Top_N(query, n)},
-                      }
-        else:
-            output = None
+    def get(self, userId):
+        args = ex.parser.parse_args()
+        n = args['limit']
+        output = ex.get_user_recommendation(int(userId), int(n))
         return output
 
-
-class Film(Resource):
-    def get(self, basis_id):
-        return basis_id
-
-
-class User_recom(Resource):
-    def get(self):
-        args = parser.parse_args()
-        ui = int(args['user'])
-        if ui in rating.userId.unique():
-            ui_list = rating[rating.userId == ui].movieId.tolist()
-            d = {k: v for k,v in movie_map.items() if not v in ui_list}
-            clf = Model_based(Algo)
-            output = clf.predict_Top_N_user(ui, d, 20)
-
-        else:
-            output = None
-
-        return output
-
-api.add_resource(Film_all, '/')
-api.add_resource(Film, '/<basis_id>')
-api.add_resource(User_recom, '/user')
+api.add_resource(MovieBasis, '/movies/<basis>')
+api.add_resource(UserBasis, '/users/<userId>')
 
 if __name__ == '__main__':
+    ex = Recommender()
+    ex.parsing_args()
     app.run(debug=True, port=8000)
-
-

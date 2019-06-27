@@ -3,6 +3,7 @@ ml-20m/*
 Files/*
 # exception to the rule
 !Files/.gitkeep
-!ml-20m/.gitkeep  
+!ml-20m/.gitkeep
 __pycache__
 .vscode
+test.py
