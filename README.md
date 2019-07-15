@@ -13,7 +13,7 @@ via content, collaborative or hybrid filtering:
  curl -X GET http://127.0.0.1:8000/movies/[basis] -d movie=[movie] -d limit=n
 ```
 where [basis] can be content, collaborative or hybrid, [movie] is the name of a movie in the data base (it is usually followed by the year of production), 
-n is an integer. For more information see the [article].
+n is an integer. For more information see the [article](https://blog.codecentric.de/en/2019/06/recommender-system-movie-lens-dataset/).
 
  _ex:_
 
